@@ -4284,11 +4284,11 @@ bool ZedCamera::publishVideoDepth(rclcpp::Time& out_pub_ts)
         rgbRawSubnumber = mPubRawRgb.getNumSubscribers();
         rgbGraySubnumber = mPubRgbGray.getNumSubscribers();
         rgbGrayRawSubnumber = mPubRawRgbGray.getNumSubscribers();
-        leftSubnumber = mPubLeft.getNumSubscribers();
+        leftSubnumber = 1;
         leftRawSubnumber = mPubRawLeft.getNumSubscribers();
         leftGraySubnumber = mPubLeftGray.getNumSubscribers();
         leftGrayRawSubnumber = mPubRawLeftGray.getNumSubscribers();
-        rightSubnumber = mPubRight.getNumSubscribers();
+        rightSubnumber = 1;
         rightRawSubnumber = mPubRawRight.getNumSubscribers();
         rightGraySubnumber = mPubRightGray.getNumSubscribers();
         rightGrayRawSubnumber = mPubRawRightGray.getNumSubscribers();
