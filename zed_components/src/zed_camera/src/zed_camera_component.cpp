@@ -1836,6 +1836,11 @@ ZedCamera::callback_paramChange(std::vector<rclcpp::Parameter> parameters)
             result.successful = true;
             result.reason = param.get_name() + " correctly set.";
             return result;
+        } else if (param.get_name().find("qos_overrides") == 0) {
+            // ignore qos_overrides in this callback
+            result.successful = true;
+            result.reason = "";
+            return result;
         } else {
             result.reason = param.get_name() + " is not a dynamic parameter";
         }
