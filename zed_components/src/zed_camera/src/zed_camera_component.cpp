@@ -1841,6 +1841,21 @@ ZedCamera::callback_paramChange(std::vector<rclcpp::Parameter> parameters)
             result.successful = true;
             result.reason = "";
             return result;
+        } else if (param.get_name().rfind("format") != std::string::npos) {
+            // ignore image_transport compression parameter
+            result.successful = true;
+            result.reason = "";
+            return result;
+        } else if (param.get_name().rfind("png_level") != std::string::npos) {
+            // ignore image_transport compression parameter
+            result.successful = true;
+            result.reason = "";
+            return result;
+        } else if (param.get_name().rfind("jpeg_quality") != std::string::npos) {
+            // ignore image_transport compression parameter
+            result.successful = true;
+            result.reason = "";
+            return result;
         } else {
             result.reason = param.get_name() + " is not a dynamic parameter";
         }
@@ -2663,10 +2678,8 @@ void ZedCamera::startVideoDepthTimer(double pubFrameRate)
     }
 
     std::chrono::milliseconds videoDepthPubPeriod_msec(
-        static_cast<int>(1000.0 / (pubFrameRate)));
-    mVideoDepthTimer = create_wall_timer(std::chrono::duration_cast<std::chrono::milliseconds>(
-                                             videoDepthPubPeriod_msec),
-        std::bind(&ZedCamera::callback_pubVideoDepth, this));
+        static_cast<int>(1000.0 / pubFrameRate));
+    mVideoDepthTimer = create_wall_timer(videoDepthPubPeriod_msec, std::bind(&ZedCamera::callback_pubVideoDepth, this));
 }
 
 void ZedCamera::startFusedPcTimer(double fusedPcRate)
@@ -3402,31 +3415,31 @@ void ZedCamera::publishStaticImuFrameAndTopic()
     mCameraImuTransfMgs->transform.translation.y = sl_tr.y;
     mCameraImuTransfMgs->transform.translation.z = sl_tr.z;
 
-    if (!mStaticImuTopicPublished) {
-        rclcpp::QoS transf_qos = mSensQos;
-        transf_qos.durability(
-            RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL); // Latched topic
-        transf_qos.keep_last(1);
-        std::string cam_imu_tr_topic = mTopicRoot + "left_cam_imu_transform";
-        mPubCamImuTransf = create_publisher<geometry_msgs::msg::TransformStamped>(
-            cam_imu_tr_topic, transf_qos);
+    // if (!mStaticImuTopicPublished) {
+    //     rclcpp::QoS transf_qos = mSensQos;
+    //     transf_qos.durability(
+    //         RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL); // Latched topic
+    //     transf_qos.keep_last(1);
+    //     std::string cam_imu_tr_topic = mTopicRoot + "left_cam_imu_transform";
+    //     mPubCamImuTransf = create_publisher<geometry_msgs::msg::TransformStamped>(
+    //         cam_imu_tr_topic, transf_qos);
 
-        mPubCamImuTransf->publish(*(mCameraImuTransfMgs.get()));
+    //     mPubCamImuTransf->publish(*(mCameraImuTransfMgs.get()));
 
-        RCLCPP_INFO_STREAM(get_logger(),
-            "Advertised on topic: "
-                << mPubCamImuTransf->get_topic_name() << " [LATCHED]");
-        RCLCPP_INFO(get_logger(),
-            "Camera-IMU Translation: \n %g %g %g",
-            sl_tr.x,
-            sl_tr.y,
-            sl_tr.z);
-        RCLCPP_INFO(get_logger(),
-            "Camera-IMU Rotation: \n %s",
-            sl_rot.getRotationMatrix().getInfos().c_str());
+    //     RCLCPP_INFO_STREAM(get_logger(),
+    //         "Advertised on topic: "
+    //             << mPubCamImuTransf->get_topic_name() << " [LATCHED]");
+    //     RCLCPP_INFO(get_logger(),
+    //         "Camera-IMU Translation: \n %g %g %g",
+    //         sl_tr.x,
+    //         sl_tr.y,
+    //         sl_tr.z);
+    //     RCLCPP_INFO(get_logger(),
+    //         "Camera-IMU Rotation: \n %s",
+    //         sl_rot.getRotationMatrix().getInfos().c_str());
 
-        mStaticImuTopicPublished = true;
-    }
+    //     mStaticImuTopicPublished = true;
+    // }
 
     // Publish IMU TF as static TF
     if (!mPublishImuTF) {
@@ -4298,9 +4311,15 @@ bool ZedCamera::publishVideoDepth(rclcpp::Time& out_pub_ts)
         stereoSubnumber = mPubStereo.getNumSubscribers();
         stereoRawSubnumber = mPubRawStereo.getNumSubscribers();
         depthSubnumber = mPubDepth.getNumSubscribers();
-        depthInfoSubnumber = count_subscribers(mPubDepthInfo->get_topic_name());
-        confMapSubnumber = count_subscribers(mPubConfMap->get_topic_name());
-        disparitySubnumber = count_subscribers(mPubDisparity->get_topic_name());
+        if (mPubDepthInfo) {
+            depthInfoSubnumber = count_subscribers(mPubDepthInfo->get_topic_name());
+        }
+        if (mPubConfMap) {
+            confMapSubnumber = count_subscribers(mPubConfMap->get_topic_name());
+        }
+        if (mPubDisparity) {
+            disparitySubnumber = count_subscribers(mPubDisparity->get_topic_name());
+        }
     } catch (...) {
         rcutils_reset_error();
         RCLCPP_DEBUG(get_logger(),
@@ -5135,6 +5154,16 @@ void ZedCamera::applyVideoSettings()
                 mZed.setCameraSettings(sl::VIDEO_SETTINGS::AEC_AGC, 1);
                 mTriggerAutoExpGain = false;
             }
+            double inner = 0.4;
+            double lower = 0.5;
+            double offset_ratio = 0.15;
+            int x = static_cast<int>(mCamWidth * (1.0-inner) / 2.0);
+            int y = static_cast<int>(mCamHeight * (1.0-lower));
+            int w = static_cast<int>(mCamWidth * inner);
+            int h = static_cast<int>(mCamHeight * lower);
+            int x_offset = static_cast<int>(mCamWidth * offset_ratio);
+            mZed.setCameraSettings(sl::VIDEO_SETTINGS::AEC_AGC_ROI, sl::Rect(x + x_offset, y, w, h), sl::SIDE::LEFT);
+            mZed.setCameraSettings(sl::VIDEO_SETTINGS::AEC_AGC_ROI, sl::Rect(x - x_offset, y, w, h), sl::SIDE::RIGHT);
         } else {
             int exposure = mZed.getCameraSettings(sl::VIDEO_SETTINGS::EXPOSURE);
             if (exposure != mCamExposure) {
