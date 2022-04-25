@@ -2581,6 +2581,9 @@ bool ZedCamera::startCamera()
                             << mMatResolDepth.height);
     // <---- Camera information
 
+    setTFCoordFrameNames(); // Requires mZedRealCamModel available only after
+        // camera opening
+        
     // ----> Camera Info messages
     mRgbCamInfoMsg = std::make_shared<sensor_msgs::msg::CameraInfo>();
     mRgbCamInfoRawMsg = std::make_shared<sensor_msgs::msg::CameraInfo>();
@@ -2606,8 +2609,6 @@ bool ZedCamera::startCamera()
     mDepthCamInfoMsg = mLeftCamInfoMsg;
     // <---- Camera Info messages
 
-    setTFCoordFrameNames(); // Requires mZedRealCamModel available only after
-        // camera opening
     initPublishers(); // Requires mZedRealCamModel available only after camera
         // opening
 
